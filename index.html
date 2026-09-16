@@ -1,0 +1,697 @@
+<title>수련시간 검증 System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  :root {
+    --paper: #faf9f5;
+    --paper-raised: #ffffff;
+    --ink: #1b231f;
+    --muted: #5c6864;
+    --line: #e1e4df;
+    --line-soft: #ebeeea;
+    --accent: #0f6e5c;
+    --accent-strong: #0a4f42;
+    --accent-soft: #e3f1ec;
+    --good: #1f8a5f;
+    --good-soft: #e6f5ec;
+    --bad: #c23b3b;
+    --bad-soft: #fbebea;
+    --shadow: 0 1px 2px rgba(20, 30, 26, 0.04), 0 6px 20px rgba(20, 30, 26, 0.05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #10150f;
+      --paper-raised: #171e18;
+      --ink: #e9ece7;
+      --muted: #97a39c;
+      --line: #2a322b;
+      --line-soft: #232b24;
+      --accent: #3fbd9a;
+      --accent-strong: #7fd8bd;
+      --accent-soft: rgba(63, 189, 154, 0.13);
+      --good: #4cc98a;
+      --good-soft: rgba(76, 201, 138, 0.14);
+      --bad: #e5696a;
+      --bad-soft: rgba(229, 105, 106, 0.14);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.28);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #10150f;
+    --paper-raised: #171e18;
+    --ink: #e9ece7;
+    --muted: #97a39c;
+    --line: #2a322b;
+    --line-soft: #232b24;
+    --accent: #3fbd9a;
+    --accent-strong: #7fd8bd;
+    --accent-soft: rgba(63, 189, 154, 0.13);
+    --good: #4cc98a;
+    --good-soft: rgba(76, 201, 138, 0.14);
+    --bad: #e5696a;
+    --bad-soft: rgba(229, 105, 106, 0.14);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.28);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Noto Sans KR", sans-serif;
+    line-height: 1.5;
+  }
+  .wrap {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  /* header */
+  header {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 22px;
+  }
+  .eyebrow {
+    font: 600 12px/1 "Noto Sans KR", sans-serif;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  h1 {
+    font-family: "Noto Serif KR", serif;
+    font-weight: 700;
+    font-size: 32px;
+    margin: 2px 0 4px;
+    text-wrap: balance;
+  }
+  .context-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 13.5px;
+  }
+  .subject-tag { font-weight: 600; color: var(--ink); }
+  .subject-tag b { color: var(--accent-strong); font-weight: 700; }
+  .month-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    border-radius: 999px;
+    padding: 4px 6px 4px 12px;
+    font-weight: 500;
+  }
+  .month-chip input {
+    background: transparent;
+    border: none;
+    color: inherit;
+    font: inherit;
+    font-weight: 700;
+    width: 92px;
+    padding: 2px 4px;
+    border-radius: 6px;
+  }
+  .month-chip input:focus { outline: 2px solid var(--accent); }
+  .credit {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--muted);
+    opacity: 0.85;
+  }
+
+  /* stat tiles */
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .tile {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px 20px;
+    box-shadow: var(--shadow);
+    border-left: 4px solid var(--line);
+  }
+  .tile.total { border-left-color: var(--accent); }
+  .tile.pass { border-left-color: var(--good); background: var(--good-soft); }
+  .tile.fail { border-left-color: var(--bad); background: var(--bad-soft); }
+  .tile .num {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 36px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    letter-spacing: -0.01em;
+  }
+  .tile.pass .num { color: var(--good); }
+  .tile.fail .num { color: var(--bad); }
+  .tile .lbl {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  .tile.pass .lbl { color: var(--good); opacity: 0.85; }
+  .tile.fail .lbl { color: var(--bad); opacity: 0.85; }
+
+  /* cards */
+  .card {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    padding: 20px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .card-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .card-title {
+    font-weight: 700;
+    font-size: 15px;
+  }
+  .card-hint {
+    color: var(--muted);
+    font-size: 12.5px;
+  }
+
+  button {
+    font: inherit;
+    cursor: pointer;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--paper-raised);
+    color: var(--ink);
+    padding: 7px 13px;
+    font-size: 13px;
+    font-weight: 500;
+    transition: background 0.12s ease, border-color 0.12s ease;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent-strong); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fdfffe;
+  }
+  button.primary:hover { background: var(--accent-strong); border-color: var(--accent-strong); color: #fdfffe; }
+  button.ghost { border-color: transparent; background: transparent; color: var(--muted); }
+  button.ghost:hover { color: var(--bad); }
+  button.small { padding: 4px 9px; font-size: 12px; }
+
+  /* threshold row */
+  .thresh-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .field label {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .field .unit-input {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 6px 10px;
+    background: var(--paper);
+  }
+  .field .unit-input input {
+    border: none;
+    background: transparent;
+    color: var(--ink);
+    font: 600 13.5px "IBM Plex Mono", monospace;
+    width: 46px;
+  }
+  .field.wide .unit-input { width: 260px; }
+  .field.wide .unit-input input { width: 100%; font-family: "Noto Sans KR", sans-serif; font-weight: 500; }
+  .field .unit-input span { color: var(--muted); font-size: 12px; }
+  .field .unit-input input:focus { outline: none; }
+  .field .unit-input:focus-within { border-color: var(--accent); }
+  .field.role-head .unit-input { border-color: var(--accent); }
+  .field.role-edu .unit-input { border-color: var(--line); }
+
+  /* table */
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 800px; }
+  thead th {
+    text-align: left;
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 600;
+    padding: 0 10px 8px;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 10px;
+    border-bottom: 1px solid var(--line-soft);
+    vertical-align: middle;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr.row-fail td { background: var(--bad-soft); }
+  tbody tr.row-fail td:first-child { border-radius: 8px 0 0 8px; }
+  tbody tr.row-fail td:last-child { border-radius: 0 8px 8px 0; }
+  td.name input {
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--ink);
+    font: 700 14px "Noto Sans KR", sans-serif;
+    padding: 5px 7px;
+    border-radius: 6px;
+    width: 100%;
+    min-width: 90px;
+  }
+  td.num input {
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--ink);
+    font: 500 13px "IBM Plex Mono", monospace;
+    font-variant-numeric: tabular-nums;
+    padding: 5px 7px;
+    border-radius: 6px;
+    width: 78px;
+    text-align: right;
+  }
+  td input:hover { border-color: var(--line); }
+  td input:focus { border-color: var(--accent); outline: none; background: var(--paper); }
+  td.computed { white-space: nowrap; }
+  td.computed .hrs {
+    font: 700 19px "IBM Plex Mono", monospace;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+  td.computed .hrs span { font-size: 11px; font-weight: 500; color: var(--muted); margin-left: 2px; }
+  td.computed .mins { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  td.bar { min-width: 168px; }
+  .bar-track {
+    position: relative;
+    height: 10px;
+    border-radius: 6px;
+    background: var(--line-soft);
+    overflow: visible;
+    margin-top: 10px;
+  }
+  .bar-fill { position: absolute; inset: 0 auto 0 0; border-radius: 6px; background: var(--good); transition: width 0.2s ease; }
+  .bar-fill.bad { background: var(--bad); }
+  .bar-tick { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ink); opacity: 0.4; }
+  .bar-tick-lbl {
+    position: absolute;
+    top: 11px;
+    transform: translateX(-50%);
+    font-size: 9.5px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .bar-val-lbl {
+    position: absolute;
+    bottom: 11px;
+    transform: translateX(-50%);
+    font: 600 10.5px "IBM Plex Mono", monospace;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  td.status { white-space: nowrap; }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+  }
+  .pill.pass { background: var(--good-soft); color: var(--good); }
+  .pill.fail { background: var(--bad-soft); color: var(--bad); }
+  td.rowdel { text-align: center; }
+
+  .table-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .copy-wrap { display: flex; align-items: center; gap: 10px; }
+  .toast { font-size: 12.5px; color: var(--good); opacity: 0; transition: opacity 0.2s ease; }
+  .toast.show { opacity: 1; }
+
+  /* upload block */
+  .upload-block {
+    border-top: 1px dashed var(--line);
+    padding-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .upload-dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    text-align: center;
+    border: 2px dashed var(--line);
+    border-radius: 12px;
+    padding: 26px 20px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+    color: var(--muted);
+  }
+  .upload-dropzone:hover,
+  .upload-dropzone:focus-visible {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    outline: none;
+  }
+  .upload-dropzone.drag-over {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .upload-dropzone svg { color: var(--accent); margin-bottom: 2px; }
+  .upload-title { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+  .upload-sub { font-size: 12px; color: var(--muted); }
+  .upload-files {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .file-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    border-radius: 999px;
+    padding: 5px 8px 5px 12px;
+    font-size: 12.5px;
+    font-weight: 500;
+  }
+  .file-chip button {
+    border: none;
+    background: transparent;
+    color: inherit;
+    padding: 2px 4px;
+    font-size: 12px;
+    line-height: 1;
+  }
+  .file-chip button:hover { color: var(--bad); border-color: transparent; }
+  .upload-note { line-height: 1.5; }
+
+  footer.note {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    padding-top: 4px;
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">전공의 수련환경 혁신지원 사업 · 지도전문의 수련시간 모니터링</div>
+    <h1>수련시간 검증 System</h1>
+    <div class="context-row">
+      <span class="subject-tag">수련과목 · <b>인턴</b></span>
+      <span class="month-chip">기준월 <input id="monthInput" value="2026년 7월" aria-label="기준월"></span>
+      <span class="credit">삼성창원병원 교육수련파트 제공</span>
+    </div>
+  </header>
+
+  <section class="tiles">
+    <div class="tile total"><div class="num" id="tileTotal">0</div><div class="lbl">검증 대상 인원</div></div>
+    <div class="tile pass"><div class="num" id="tilePass">0</div><div class="lbl">기준 충족</div></div>
+    <div class="tile fail"><div class="num" id="tileFail">0</div><div class="lbl">기준 미달</div></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div class="card-title">기준 설정</div>
+      <div class="card-hint">합계(시간) = 수련시간(합) + 면담시간(합) + 회의·간담회시간, 60으로 나눈 값</div>
+    </div>
+    <div class="thresh-row">
+      <div class="field role-head">
+        <label for="specialHours">책임 지도전문의 기준시간</label>
+        <div class="unit-input"><input id="specialHours" type="number" min="0" step="0.5" value="64"><span>시간 / 월</span></div>
+      </div>
+      <div class="field wide">
+        <label for="specialNames">책임 지도전문의 명단 (쉼표로 구분)</label>
+        <div class="unit-input"><input id="specialNames" type="text" value="이주석"></div>
+      </div>
+      <div class="field role-edu">
+        <label for="baseHours">교육전담 지도전문의 기준시간</label>
+        <div class="unit-input"><input id="baseHours" type="number" min="0" step="0.5" value="24"><span>시간 / 월</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div class="card-title">지도전문의별 수련시간 (분 단위 입력)</div>
+      <div class="card-hint">GMETIMS 통계 화면 수치 + 회의록 참석시간을 더한 값을 입력하세요</div>
+    </div>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>지도전문의</th>
+            <th>수련시간(분)</th>
+            <th>면담시간(분)</th>
+            <th>회의·간담회(분)</th>
+            <th>합계</th>
+            <th style="min-width:168px">기준 대비</th>
+            <th>결과</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="rowsBody"></tbody>
+      </table>
+    </div>
+
+    <div class="table-foot">
+      <button id="addRowBtn">+ 지도전문의 추가</button>
+      <div class="copy-wrap">
+        <button id="copyBtn">미달자 명단 복사</button>
+        <span class="toast" id="toast">복사되었습니다</span>
+      </div>
+    </div>
+
+    <div class="upload-block">
+      <div class="upload-dropzone" id="dropzone" tabindex="0" role="button" aria-label="PDF 첨부하기">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11"/><path d="M7.5 10.5 12 15l4.5-4.5"/><path d="M4 16v2.5A2.5 2.5 0 0 0 6.5 21h11a2.5 2.5 0 0 0 2.5-2.5V16"/></svg>
+        <div class="upload-title">GMETIMS PDF를 여기로 드래그하거나 클릭해서 선택하세요</div>
+        <div class="upload-sub">통계 PDF · 회의록 PDF(병원관리자 / 과목담당자) 모두 첨부 가능</div>
+        <input type="file" id="fileInput" accept="application/pdf" multiple hidden>
+      </div>
+      <div class="upload-files" id="fileList"></div>
+      <div class="card-hint upload-note">이 화면에서는 선택한 파일이 자동으로 계산되지 않습니다. 같은 파일을 대화창에도 첨부해 "수련시간 확인해줘"라고 요청하면 반영됩니다.</div>
+    </div>
+  </section>
+
+  <footer class="note">책임 지도전문의는 월 64시간, 교육전담 지도전문의는 월 24시간 이상 확보해야 합니다 · 계산은 표를 수정할 때마다 자동 갱신됩니다</footer>
+</div>
+
+<script>
+  const rowsBody = document.getElementById('rowsBody');
+  const baseHoursEl = document.getElementById('baseHours');
+  const specialHoursEl = document.getElementById('specialHours');
+  const specialNamesEl = document.getElementById('specialNames');
+
+  // t=수련시간(분), m=면담시간(분) — GMETIMS 월간 통계 화면 기준
+  // g=회의·간담회(분) — 병원관리자/과목담당자 회의록 PDF에서 2026년 7월 개최 건의
+  // 참석대상 명단을 대조해 사람별로 합산한 값 (자동 집계 대상 외 수기 반영)
+  // ROWS_START -- 새 달 확인 시 rows_<month>.json 내용으로 이 배열을 통째로 교체
+  const initialRows = [
+    { name: '이주석', t: 1380, m: 2280, g: 600 },
+    { name: '김성훈', t: 0, m: 480, g: 120 },
+    { name: '서지원', t: 0, m: 240, g: 120 },
+    { name: '조정환', t: 1020, m: 480, g: 120 },
+    { name: '조성애', t: 2760, m: 0, g: 120 },
+    { name: '이상택', t: 1380, m: 240, g: 120 },
+    { name: '박기철', t: 900, m: 240, g: 120 },
+    { name: '이현욱', t: 60, m: 420, g: 420 },
+  ];
+  // ROWS_END
+
+  function makeRow(data) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="name"><input type="text" value="${data.name}" aria-label="지도전문의 이름"></td>
+      <td class="num"><input class="t-input" type="number" min="0" step="1" value="${data.t}" aria-label="수련시간(분)"></td>
+      <td class="num"><input class="m-input" type="number" min="0" step="1" value="${data.m}" aria-label="면담시간(분)"></td>
+      <td class="num"><input class="g-input" type="number" min="0" step="1" value="${data.g || 0}" aria-label="회의·간담회시간(분)"></td>
+      <td class="computed sum"></td>
+      <td class="bar"><div class="bar-track"><div class="bar-fill"></div><div class="bar-tick"></div><span class="bar-tick-lbl"></span><span class="bar-val-lbl"></span></div></td>
+      <td class="status"></td>
+      <td class="rowdel"><button class="ghost small" title="행 삭제">✕</button></td>
+    `;
+    tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', recalc));
+    tr.querySelector('.rowdel button').addEventListener('click', () => { tr.remove(); recalc(); });
+    return tr;
+  }
+
+  function loadRows(list) {
+    rowsBody.innerHTML = '';
+    list.forEach(d => rowsBody.appendChild(makeRow(d)));
+    recalc();
+  }
+
+  document.getElementById('addRowBtn').addEventListener('click', () => {
+    rowsBody.appendChild(makeRow({ name: '', t: 0, m: 0, g: 0 }));
+  });
+
+  function num(v) {
+    const n = parseFloat(String(v).replace(/,/g, ''));
+    return isNaN(n) ? 0 : n;
+  }
+
+  function recalc() {
+    const baseH = num(baseHoursEl.value) || 0;
+    const specH = num(specialHoursEl.value) || 0;
+    const specialSet = new Set(
+      specialNamesEl.value.split(',').map(s => s.trim()).filter(Boolean)
+    );
+
+    const rows = Array.from(rowsBody.querySelectorAll('tr'));
+    const computed = rows.map(tr => {
+      const name = tr.querySelector('.name input').value.trim();
+      const t = num(tr.querySelector('.t-input').value);
+      const m = num(tr.querySelector('.m-input').value);
+      const g = num(tr.querySelector('.g-input').value);
+      const sumMin = t + m + g;
+      const hours = sumMin / 60;
+      const threshold = specialSet.has(name) ? specH : baseH;
+      const pass = hours >= threshold;
+      return { tr, name, sumMin, hours, threshold, pass };
+    });
+
+    const scaleMax = Math.max(specH, baseH, ...computed.map(c => c.hours), 1) * 1.12;
+
+    let total = 0, passCount = 0;
+    computed.forEach(c => {
+      if (!c.name) { c.tr.style.opacity = '0.45'; } else { c.tr.style.opacity = '1'; total++; if (c.pass) passCount++; }
+      c.tr.classList.toggle('row-fail', !!c.name && !c.pass);
+
+      c.tr.querySelector('.sum').innerHTML =
+        `<div class="hrs">${c.hours.toFixed(1)}<span>h</span></div><div class="mins">${c.sumMin.toLocaleString()}분</div>`;
+
+      const fillPct = Math.max(0, Math.min(100, (c.hours / scaleMax) * 100));
+      const tickPct = Math.max(0, Math.min(100, (c.threshold / scaleMax) * 100));
+      const fill = c.tr.querySelector('.bar-fill');
+      const tick = c.tr.querySelector('.bar-tick');
+      const tickLbl = c.tr.querySelector('.bar-tick-lbl');
+      const valLbl = c.tr.querySelector('.bar-val-lbl');
+      fill.style.width = fillPct + '%';
+      fill.classList.toggle('bad', !c.pass);
+      tick.style.left = tickPct + '%';
+      tickLbl.style.left = tickPct + '%';
+      tickLbl.textContent = c.name ? `기준 ${c.threshold}h` : '';
+      valLbl.style.left = Math.max(6, Math.min(94, fillPct)) + '%';
+      valLbl.textContent = c.name ? `${c.hours.toFixed(1)}h` : '';
+
+      const statusCell = c.tr.querySelector('.status');
+      if (!c.name) {
+        statusCell.innerHTML = '';
+      } else if (c.pass) {
+        statusCell.innerHTML = `<span class="pill pass">충족</span>`;
+      } else {
+        statusCell.innerHTML = `<span class="pill fail">미달 · ${(c.threshold - c.hours).toFixed(1)}h 부족</span>`;
+      }
+    });
+
+    document.getElementById('tileTotal').textContent = total;
+    document.getElementById('tilePass').textContent = passCount;
+    document.getElementById('tileFail').textContent = total - passCount;
+
+    window.__lastComputed = computed.filter(c => c.name);
+  }
+
+  [baseHoursEl, specialHoursEl, specialNamesEl].forEach(el => el.addEventListener('input', recalc));
+
+  document.getElementById('copyBtn').addEventListener('click', async () => {
+    const month = document.getElementById('monthInput').value.trim();
+    const fails = (window.__lastComputed || []).filter(c => !c.pass);
+    const lines = fails.length
+      ? [`[${month} 지도수련시간 미달자]`, ...fails.map(c => `- ${c.name}: ${c.hours.toFixed(1)}h / 기준 ${c.threshold}h (${(c.threshold - c.hours).toFixed(1)}h 부족)`)]
+      : [`[${month} 지도수련시간] 미달자 없음`];
+    const text = lines.join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {
+      /* clipboard unavailable; fall through silently */
+    }
+    const toast = document.getElementById('toast');
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 1600);
+  });
+
+  // --- PDF attach dropzone (visual only -- see upload-note; parsing happens in chat) ---
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const fileListEl = document.getElementById('fileList');
+  let attachedFiles = [];
+
+  function renderFileList() {
+    fileListEl.innerHTML = attachedFiles.map((f, i) => `
+      <span class="file-chip">${f.name}<button data-i="${i}" title="제거">✕</button></span>
+    `).join('');
+    fileListEl.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        attachedFiles.splice(Number(btn.dataset.i), 1);
+        renderFileList();
+      });
+    });
+  }
+
+  function addFiles(fileArr) {
+    for (const f of fileArr) {
+      if (!attachedFiles.some(existing => existing.name === f.name && existing.size === f.size)) {
+        attachedFiles.push(f);
+      }
+    }
+    renderFileList();
+  }
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+  });
+  fileInput.addEventListener('change', () => addFiles(Array.from(fileInput.files)));
+  ['dragenter', 'dragover'].forEach(evt =>
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add('drag-over'); })
+  );
+  ['dragleave', 'drop'].forEach(evt =>
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove('drag-over'); })
+  );
+  dropzone.addEventListener('drop', (e) => {
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type === 'application/pdf');
+    addFiles(files);
+  });
+
+  loadRows(initialRows);
+</script>
