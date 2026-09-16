@@ -485,7 +485,7 @@
     <h1>수련시간 검증 System</h1>
     <div class="context-row">
       <span class="subject-tag">수련과목 · <b>인턴</b></span>
-      <span class="month-chip">기준월 <input id="monthInput" value="2026년 7월" aria-label="기준월"></span>
+      <span class="month-chip">기준월 <input id="monthInput" value="" placeholder="예: 2026년 8월" aria-label="기준월"></span>
       <span class="credit">삼성창원병원 교육수련파트 제공</span>
     </div>
   </header>
@@ -556,6 +556,7 @@
       <div class="upload-files" id="fileList"></div>
       <div class="verify-row">
         <button class="primary" id="verifyBtn" disabled>검증 시작</button>
+        <button id="resetBtn" title="첨부 파일과 결과를 모두 지우고 새로 시작">초기화</button>
         <span class="verify-status" id="verifyStatus"></span>
       </div>
       <div class="card-hint upload-note">PDF에서 개최일자·참석대상(회의록)과 수련시간(합)/면담시간(합) 표(통계 PDF)를 자동 인식합니다. 표 형식을 인식하지 못하면 위 표에 직접 입력해주세요.</div>
@@ -1038,6 +1039,16 @@
   }
 
   verifyBtn.addEventListener('click', runVerification);
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    attachedFiles = [];
+    renderFileList();
+    fileInput.value = '';
+    loadRows([]);
+    document.getElementById('monthInput').value = '';
+    verifyStatusEl.className = 'verify-status';
+    verifyStatusEl.innerHTML = '';
+  });
 
   loadRows([]);
 </script>
