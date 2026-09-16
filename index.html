@@ -223,44 +223,51 @@
   button.ghost:hover { color: var(--bad); }
   button.small { padding: 4px 9px; font-size: 12px; }
 
-  /* threshold row */
-  .thresh-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 18px;
+  /* threshold tiles */
+  .thresh-tiles {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
   }
-  .field {
+  .thresh-tile {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 8px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--line);
+    padding: 16px 20px;
   }
-  .field label {
-    font-size: 12px;
+  .thresh-tile.head { border-left-color: var(--accent); background: var(--accent-soft); }
+  .thresh-tile.edu { border-left-color: var(--line); background: var(--paper); }
+  .thresh-tile-label {
+    font-size: 12.5px;
+    font-weight: 700;
     color: var(--muted);
   }
-  .field .unit-input {
+  .thresh-tile.head .thresh-tile-label { color: var(--accent-strong); }
+  .thresh-tile-value {
     display: flex;
-    align-items: center;
-    gap: 6px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 6px 10px;
-    background: var(--paper);
+    align-items: baseline;
+    gap: 8px;
   }
-  .field .unit-input input {
+  .thresh-tile-value input {
     border: none;
     background: transparent;
     color: var(--ink);
-    font: 600 13.5px "IBM Plex Mono", monospace;
-    width: 46px;
+    font: 700 32px "IBM Plex Mono", monospace;
+    font-variant-numeric: tabular-nums;
+    width: 76px;
+    padding: 0;
+    border-radius: 6px;
   }
-  .field.wide .unit-input { width: 260px; }
-  .field.wide .unit-input input { width: 100%; font-family: "Noto Sans KR", sans-serif; font-weight: 500; }
-  .field .unit-input span { color: var(--muted); font-size: 12px; }
-  .field .unit-input input:focus { outline: none; }
-  .field .unit-input:focus-within { border-color: var(--accent); }
-  .field.role-head .unit-input { border-color: var(--accent); }
-  .field.role-edu .unit-input { border-color: var(--line); }
+  .thresh-tile-value input:hover { background: var(--paper-raised); }
+  .thresh-tile-value input:focus { outline: 2px solid var(--accent); background: var(--paper-raised); }
+  .thresh-tile-value span {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--muted);
+  }
 
   /* table */
   .table-scroll { overflow-x: auto; }
@@ -489,18 +496,14 @@
       <div class="card-title">기준 설정</div>
       <div class="card-hint">합계(시간) = 수련시간(합) + 면담시간(합) + 회의·간담회시간, 60으로 나눈 값</div>
     </div>
-    <div class="thresh-row">
-      <div class="field role-head">
-        <label for="specialHours">책임 지도전문의 기준시간</label>
-        <div class="unit-input"><input id="specialHours" type="number" min="0" step="0.5" value="64"><span>시간 / 월</span></div>
+    <div class="thresh-tiles">
+      <div class="thresh-tile head">
+        <div class="thresh-tile-label">책임 지도전문의 기준시간</div>
+        <div class="thresh-tile-value"><input id="specialHours" type="number" min="0" step="0.5" value="64"><span>시간 / 월</span></div>
       </div>
-      <div class="field wide">
-        <label for="specialNames">책임 지도전문의 명단 (쉼표로 구분)</label>
-        <div class="unit-input"><input id="specialNames" type="text" value="이주석"></div>
-      </div>
-      <div class="field role-edu">
-        <label for="baseHours">교육전담 지도전문의 기준시간</label>
-        <div class="unit-input"><input id="baseHours" type="number" min="0" step="0.5" value="24"><span>시간 / 월</span></div>
+      <div class="thresh-tile edu">
+        <div class="thresh-tile-label">교육전담 지도전문의 기준시간</div>
+        <div class="thresh-tile-value"><input id="baseHours" type="number" min="0" step="0.5" value="24"><span>시간 / 월</span></div>
       </div>
     </div>
   </section>
@@ -567,7 +570,6 @@
   const tableEmpty = document.getElementById('tableEmpty');
   const baseHoursEl = document.getElementById('baseHours');
   const specialHoursEl = document.getElementById('specialHours');
-  const specialNamesEl = document.getElementById('specialNames');
 
   // Default roster: name -> role. New names discovered in a stats PDF are
   // added automatically as 교육전담지도전문의 (24h) for that run.
@@ -618,9 +620,7 @@
   function recalc() {
     const baseH = num(baseHoursEl.value) || 0;
     const specH = num(specialHoursEl.value) || 0;
-    const specialSet = new Set(
-      specialNamesEl.value.split(',').map(s => s.trim()).filter(Boolean)
-    );
+    const isHead = name => DEFAULT_ROSTER[name] === '책임지도전문의';
 
     const rows = Array.from(rowsBody.querySelectorAll('tr'));
     tableEmpty.hidden = rows.length > 0;
@@ -632,7 +632,7 @@
       const g = num(tr.querySelector('.g-input').value);
       const sumMin = t + m + g;
       const hours = sumMin / 60;
-      const threshold = specialSet.has(name) ? specH : baseH;
+      const threshold = isHead(name) ? specH : baseH;
       const pass = hours >= threshold;
       return { tr, name, sumMin, hours, threshold, pass };
     });
@@ -678,7 +678,7 @@
     window.__lastComputed = computed.filter(c => c.name);
   }
 
-  [baseHoursEl, specialHoursEl, specialNamesEl].forEach(el => el.addEventListener('input', recalc));
+  [baseHoursEl, specialHoursEl].forEach(el => el.addEventListener('input', recalc));
 
   document.getElementById('copyBtn').addEventListener('click', async () => {
     const month = document.getElementById('monthInput').value.trim();
