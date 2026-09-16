@@ -212,6 +212,13 @@
     color: #fdfffe;
   }
   button.primary:hover { background: var(--accent-strong); border-color: var(--accent-strong); color: #fdfffe; }
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    border-color: var(--line);
+    background: var(--paper-raised);
+    color: var(--muted);
+  }
   button.ghost { border-color: transparent; background: transparent; color: var(--muted); }
   button.ghost:hover { color: var(--bad); }
   button.small { padding: 4px 9px; font-size: 12px; }
@@ -349,6 +356,15 @@
   .pill.fail { background: var(--bad-soft); color: var(--bad); }
   td.rowdel { text-align: center; }
 
+  .table-empty {
+    padding: 28px 16px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+  }
+
   .table-foot {
     display: flex;
     align-items: center;
@@ -423,6 +439,26 @@
   .file-chip button:hover { color: var(--bad); border-color: transparent; }
   .upload-note { line-height: 1.5; }
 
+  .verify-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .spinner {
+    display: inline-block;
+    width: 13px;
+    height: 13px;
+    border: 2px solid var(--accent-soft);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: -2px;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .verify-status { font-size: 12.5px; color: var(--muted); }
+  .verify-status.err { color: var(--bad); }
+  .verify-status.ok { color: var(--good); }
+  @media (prefers-reduced-motion: reduce) {
+    .spinner { animation: none; }
+  }
+
   footer.note {
     font-size: 12px;
     color: var(--muted);
@@ -472,7 +508,7 @@
   <section class="card">
     <div class="card-head">
       <div class="card-title">지도전문의별 수련시간 (분 단위 입력)</div>
-      <div class="card-hint">GMETIMS 통계 화면 수치 + 회의록 참석시간을 더한 값을 입력하세요</div>
+      <div class="card-hint">PDF 검증 결과가 자동으로 채워집니다 · 필요하면 직접 수정하세요</div>
     </div>
 
     <div class="table-scroll">
@@ -492,6 +528,7 @@
         <tbody id="rowsBody"></tbody>
       </table>
     </div>
+    <div class="table-empty" id="tableEmpty">아직 반영된 데이터가 없습니다. 아래에서 PDF를 첨부하고 "검증 시작"을 누르거나, "+ 지도전문의 추가"로 직접 입력하세요.</div>
 
     <div class="table-foot">
       <button id="addRowBtn">+ 지도전문의 추가</button>
@@ -509,34 +546,41 @@
         <input type="file" id="fileInput" accept="application/pdf" multiple hidden>
       </div>
       <div class="upload-files" id="fileList"></div>
-      <div class="card-hint upload-note">이 화면에서는 선택한 파일이 자동으로 계산되지 않습니다. 같은 파일을 대화창에도 첨부해 "수련시간 확인해줘"라고 요청하면 반영됩니다.</div>
+      <div class="verify-row">
+        <button class="primary" id="verifyBtn" disabled>검증 시작</button>
+        <span class="verify-status" id="verifyStatus"></span>
+      </div>
+      <div class="card-hint upload-note">PDF에서 개최일자·참석대상(회의록)과 수련시간(합)/면담시간(합) 표(통계 PDF)를 자동 인식합니다. 표 형식을 인식하지 못하면 위 표에 직접 입력해주세요.</div>
     </div>
   </section>
 
   <footer class="note">책임 지도전문의는 월 64시간, 교육전담 지도전문의는 월 24시간 이상 확보해야 합니다 · 계산은 표를 수정할 때마다 자동 갱신됩니다</footer>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+
   const rowsBody = document.getElementById('rowsBody');
+  const tableEmpty = document.getElementById('tableEmpty');
   const baseHoursEl = document.getElementById('baseHours');
   const specialHoursEl = document.getElementById('specialHours');
   const specialNamesEl = document.getElementById('specialNames');
 
-  // t=수련시간(분), m=면담시간(분) — GMETIMS 월간 통계 화면 기준
-  // g=회의·간담회(분) — 병원관리자/과목담당자 회의록 PDF에서 2026년 7월 개최 건의
-  // 참석대상 명단을 대조해 사람별로 합산한 값 (자동 집계 대상 외 수기 반영)
-  // ROWS_START -- 새 달 확인 시 rows_<month>.json 내용으로 이 배열을 통째로 교체
-  const initialRows = [
-    { name: '이주석', t: 1380, m: 2280, g: 600 },
-    { name: '김성훈', t: 0, m: 480, g: 120 },
-    { name: '서지원', t: 0, m: 240, g: 120 },
-    { name: '조정환', t: 1020, m: 480, g: 120 },
-    { name: '조성애', t: 2760, m: 0, g: 120 },
-    { name: '이상택', t: 1380, m: 240, g: 120 },
-    { name: '박기철', t: 900, m: 240, g: 120 },
-    { name: '이현욱', t: 60, m: 420, g: 420 },
-  ];
-  // ROWS_END
+  // Default roster: name -> role. New names discovered in a stats PDF are
+  // added automatically as 교육전담지도전문의 (24h) for that run.
+  const DEFAULT_ROSTER = {
+    '이주석': '책임지도전문의',
+    '김성훈': '교육전담지도전문의',
+    '서지원': '교육전담지도전문의',
+    '조정환': '교육전담지도전문의',
+    '조성애': '교육전담지도전문의',
+    '이상택': '교육전담지도전문의',
+    '박기철': '교육전담지도전문의',
+    '이현욱': '교육전담지도전문의',
+  };
 
   function makeRow(data) {
     const tr = document.createElement('tr');
@@ -563,6 +607,7 @@
 
   document.getElementById('addRowBtn').addEventListener('click', () => {
     rowsBody.appendChild(makeRow({ name: '', t: 0, m: 0, g: 0 }));
+    recalc();
   });
 
   function num(v) {
@@ -578,6 +623,8 @@
     );
 
     const rows = Array.from(rowsBody.querySelectorAll('tr'));
+    tableEmpty.hidden = rows.length > 0;
+
     const computed = rows.map(tr => {
       const name = tr.querySelector('.name input').value.trim();
       const t = num(tr.querySelector('.t-input').value);
@@ -650,10 +697,12 @@
     setTimeout(() => toast.classList.remove('show'), 1600);
   });
 
-  // --- PDF attach dropzone (visual only -- see upload-note; parsing happens in chat) ---
+  // --- PDF attach dropzone ---
   const dropzone = document.getElementById('dropzone');
   const fileInput = document.getElementById('fileInput');
   const fileListEl = document.getElementById('fileList');
+  const verifyBtn = document.getElementById('verifyBtn');
+  const verifyStatusEl = document.getElementById('verifyStatus');
   let attachedFiles = [];
 
   function renderFileList() {
@@ -666,6 +715,7 @@
         renderFileList();
       });
     });
+    verifyBtn.disabled = attachedFiles.length === 0;
   }
 
   function addFiles(fileArr) {
@@ -693,5 +743,208 @@
     addFiles(files);
   });
 
-  loadRows(initialRows);
+  function setVerifyStatus(text, busy, isErr) {
+    verifyStatusEl.className = 'verify-status' + (isErr ? ' err' : (busy ? '' : ' ok'));
+    verifyStatusEl.innerHTML = (busy ? '<span class="spinner"></span>' : '') + text;
+  }
+
+  // --- PDF text extraction: reconstruct lines from pdf.js text items,
+  // inserting a tab where the horizontal gap looks like a table-cell
+  // boundary, so the same line can be read either as prose or as columns. ---
+  async function extractPageLines(page) {
+    const content = await page.getTextContent();
+    const items = content.items.filter(it => it.str.trim() !== '');
+    const rowsByY = [];
+    const tol = 2.5;
+    items.forEach(it => {
+      const y = it.transform[5];
+      let row = rowsByY.find(r => Math.abs(r.y - y) <= tol);
+      if (!row) { row = { y, items: [] }; rowsByY.push(row); }
+      row.items.push(it);
+    });
+    rowsByY.sort((a, b) => b.y - a.y);
+    return rowsByY.map(row => {
+      row.items.sort((a, b) => a.transform[4] - b.transform[4]);
+      let line = '';
+      let prevEnd = null;
+      row.items.forEach(it => {
+        const x = it.transform[4];
+        if (prevEnd !== null) {
+          const gap = x - prevEnd;
+          line += gap > 8 ? '\t' : (gap > 1.5 ? ' ' : '');
+        }
+        line += it.str;
+        prevEnd = x + (it.width || it.str.length * (it.height || 10) * 0.5);
+      });
+      return line;
+    });
+  }
+
+  function toMinutes(ampm, h, mi) {
+    h = parseInt(h, 10); mi = parseInt(mi, 10);
+    if (ampm === '오전') { if (h === 12) h = 0; } else { if (h !== 12) h += 12; }
+    return h * 60 + mi;
+  }
+
+  const MEETING_RE = /개최일자\s*(\d{4}-\d{2}-\d{2})\s*(오전|오후)\s*(\d{1,2}):(\d{2})\s*~\s*(오전|오후)\s*(\d{1,2}):(\d{2})/;
+
+  function parseMeetingFromLines(lines) {
+    const flat = lines.map(l => l.replace(/\t/g, ' '));
+    const joined = flat.join('\n');
+    if (!joined.includes('개최일자') || !joined.includes('참석대상')) return null;
+    const m = joined.match(MEETING_RE);
+    if (!m) return null;
+    const [, date, ap1, h1, mi1, ap2, h2, mi2] = m;
+    const start = toMinutes(ap1, h1, mi1);
+    const end = toMinutes(ap2, h2, mi2);
+    const duration = end - start;
+
+    let title = null;
+    const titleLine = flat.find(l => l.trim().startsWith('제목'));
+    if (titleLine) title = titleLine.replace(/^\s*제목\s*/, '').trim();
+
+    let attendees = [];
+    const idx = flat.findIndex(l => l.includes('참석대상'));
+    if (idx !== -1) {
+      for (let j = idx + 1; j < Math.min(idx + 4, flat.length); j++) {
+        const cand = flat[j].trim();
+        if (!cand) continue;
+        if (/^\d+\./.test(cand)) break;
+        attendees = cand.split(',').map(s => s.trim()).filter(Boolean);
+        break;
+      }
+    }
+    return { title, date, duration, attendees, warning: duration <= 0 ? `비정상 시간(${duration}분)` : null };
+  }
+
+  function toNum(cell) {
+    const m = (cell || '').replace(/,/g, '').match(/-?\d+(\.\d+)?/);
+    return m ? parseFloat(m[0]) : 0;
+  }
+
+  function parseStatsFromLines(lines) {
+    const rows = lines.map(l => l.split('\t').map(c => c.trim()));
+    let headerIdx = -1, nameIdx = -1, tIdx = -1, mIdx = -1, gIdx = -1;
+    for (let i = 0; i < Math.min(rows.length, 15); i++) {
+      const r = rows[i];
+      const nI = r.findIndex(c => c.includes('전문의'));
+      const tI = r.findIndex(c => c.includes('수련시간'));
+      if (nI !== -1 && tI !== -1) {
+        headerIdx = i; nameIdx = nI; tIdx = tI;
+        mIdx = r.findIndex(c => c.includes('면담시간'));
+        gIdx = r.findIndex(c => c.includes('간담회시간'));
+        break;
+      }
+    }
+    if (headerIdx === -1) return null;
+    const out = [];
+    for (let i = headerIdx + 1; i < rows.length; i++) {
+      const r = rows[i];
+      if (r.length <= Math.max(nameIdx, tIdx)) continue;
+      const name = r[nameIdx];
+      if (!name || name === '합계') continue;
+      out.push({
+        name,
+        t: toNum(r[tIdx]),
+        m: mIdx !== -1 ? toNum(r[mIdx]) : 0,
+        g: gIdx !== -1 ? toNum(r[gIdx]) : 0,
+      });
+    }
+    return out.length ? out : null;
+  }
+
+  async function runVerification() {
+    if (!attachedFiles.length) return;
+    if (!window.pdfjsLib) {
+      setVerifyStatus('PDF 분석 기능을 불러오지 못했습니다. 잠시 후 다시 시도하거나 표에 직접 입력해주세요.', false, true);
+      return;
+    }
+    verifyBtn.disabled = true;
+    setVerifyStatus('PDF 분석 중...', true);
+
+    const roster = { ...DEFAULT_ROSTER };
+    const totals = {};
+    Object.keys(roster).forEach(n => totals[n] = { t: 0, m: 0, g: 0 });
+    const meetings = [];
+    let detectedMonth = null;
+    const warnings = [];
+
+    try {
+      for (const file of attachedFiles) {
+        const buf = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+        let statsRows = null;
+
+        for (let p = 1; p <= pdf.numPages; p++) {
+          const page = await pdf.getPage(p);
+          const lines = await extractPageLines(page);
+
+          if (!detectedMonth) {
+            const mm = lines.join(' ').match(/(\d{4})년\s*(\d{1,2})월/);
+            if (mm) detectedMonth = `${mm[1]}-${String(mm[2]).padStart(2, '0')}`;
+          }
+
+          const sr = parseStatsFromLines(lines);
+          if (sr) statsRows = (statsRows || []).concat(sr);
+
+          const rec = parseMeetingFromLines(lines);
+          if (rec) meetings.push(rec);
+        }
+
+        if (statsRows) {
+          statsRows.forEach(row => {
+            if (!(row.name in roster)) { roster[row.name] = '교육전담지도전문의'; totals[row.name] = { t: 0, m: 0, g: 0 }; }
+            totals[row.name].t += row.t;
+            totals[row.name].m += row.m;
+            totals[row.name].g += row.g;
+          });
+        }
+      }
+
+      if (!detectedMonth && meetings.length) {
+        const counts = {};
+        meetings.forEach(rec => { const mo = rec.date.slice(0, 7); counts[mo] = (counts[mo] || 0) + 1; });
+        detectedMonth = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+      }
+
+      const unmatched = new Set();
+      meetings.forEach(rec => {
+        if (detectedMonth && !rec.date.startsWith(detectedMonth)) return;
+        if (rec.warning) warnings.push(`${rec.date} "${rec.title || ''}" — ${rec.warning}`);
+        rec.attendees.forEach(name => {
+          if (name in totals) totals[name].g += rec.duration;
+          else unmatched.add(name);
+        });
+      });
+
+      const rows = Object.keys(totals)
+        .filter(name => totals[name].t || totals[name].m || totals[name].g)
+        .map(name => ({ name, t: totals[name].t, m: totals[name].m, g: totals[name].g }));
+
+      if (!rows.length) {
+        setVerifyStatus('PDF에서 인식 가능한 데이터를 찾지 못했습니다. 표 형식을 확인하거나 아래 표에 직접 입력해주세요.', false, true);
+        return;
+      }
+
+      loadRows(rows);
+      if (detectedMonth) {
+        const [y, mo] = detectedMonth.split('-');
+        document.getElementById('monthInput').value = `${y}년 ${parseInt(mo, 10)}월`;
+      }
+
+      let msg = `${rows.length}명 반영 완료`;
+      if (unmatched.size) msg += ` · 제외됨: ${Array.from(unmatched).join(', ')}`;
+      if (warnings.length) msg += ` · 확인 필요: ${warnings.join(' / ')}`;
+      setVerifyStatus(msg, false, false);
+    } catch (err) {
+      console.error(err);
+      setVerifyStatus('PDF 처리 중 오류가 발생했습니다. 파일 형식을 확인하거나 표에 직접 입력해주세요.', false, true);
+    } finally {
+      verifyBtn.disabled = attachedFiles.length === 0;
+    }
+  }
+
+  verifyBtn.addEventListener('click', runVerification);
+
+  loadRows([]);
 </script>
