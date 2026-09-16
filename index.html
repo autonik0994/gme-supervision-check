@@ -928,6 +928,7 @@
     const meetings = [];
     const careRecords = [];
     let detectedMonth = null;
+    let statsMonth = null;
     const warnings = [];
 
     try {
@@ -940,11 +941,6 @@
         for (let p = 1; p <= pdf.numPages; p++) {
           const page = await pdf.getPage(p);
           const lines = await extractPageLines(page);
-
-          if (!detectedMonth) {
-            const mm = lines.join(' ').match(/(\d{4})년\s*(\d{1,2})월/);
-            if (mm) detectedMonth = `${mm[1]}-${String(mm[2]).padStart(2, '0')}`;
-          }
 
           if (p === 1) {
             const cover = parseCoverPage(lines);
@@ -964,7 +960,17 @@
           }
 
           const sr = parseStatsFromLines(lines);
-          if (sr) statsRows = (statsRows || []).concat(sr);
+          if (sr) {
+            statsRows = (statsRows || []).concat(sr);
+            // A stats-table page genuinely prints its "OOOO년 O월" period as
+            // a table header, unlike a 회의록/지도기록 page where the same
+            // pattern could coincidentally show up inside free-text notes --
+            // so only look for it here, on a page we've confirmed is a table.
+            if (!statsMonth) {
+              const mm = lines.join(' ').match(/(\d{4})년\s*(\d{1,2})월/);
+              if (mm) statsMonth = `${mm[1]}-${String(mm[2]).padStart(2, '0')}`;
+            }
+          }
 
           const rec = parseMeetingFromLines(lines);
           if (rec) meetings.push(rec);
@@ -980,6 +986,7 @@
         }
       }
 
+      detectedMonth = statsMonth;
       if (!detectedMonth && (meetings.length || careRecords.length)) {
         const counts = {};
         [...meetings, ...careRecords].forEach(rec => { const mo = rec.date.slice(0, 7); counts[mo] = (counts[mo] || 0) + 1; });
